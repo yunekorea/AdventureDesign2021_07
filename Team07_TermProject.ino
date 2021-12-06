@@ -3,20 +3,27 @@
 
 #include <Servo.h>
 
-const int gasSensor = A2;
+const int gasSensorIn = A2;
+const int gasSensorOut = A3;
 //const int rainDropSensor = ;
-const int tempHumidSensor  = 5;
+const int tempHumidSensorIn = 5;
+const int tempHumidSensorOut = 6;
 //const int IRSensor = ;
 //const int servoMotor = ;
 
-float gas = 0;
+float gasIn = 0;
+float gasOut = 0;
+float tempIn = 0;
+float tempOut = 0;
+float humidIn = 0;
+float humidOut = 0;
 int rainDrop = 0;
-float temp = 0;
-float humid = 0;
 int IR = 0;
 
-MQ135 mq135Sensor(gasSensor);
-DHTStable DHT;
+MQ135 mq135In(gasSensorIn);
+MQ135 mq135Out(gasSensorOut);
+DHTStable DHTin;
+DHTStable DHTout;
 
 Servo windowServo;    //Servo motor that controls the window
 
@@ -25,9 +32,7 @@ void SensorInit(void) {
   
   //RainDrop Sensor init
 
-  //Temp Sensor init
-  
-  //humid Sensor init
+  //Temp/Humid Sensor init
   
   //IRSensor init
   //pinMode(IRSensor, INPUT);
@@ -42,13 +47,18 @@ void SensorData() {
   //getting data from each sensors
 
   //DHT11 data read
-  DHT.read11(tempHumidSensor);
+  DHTin.read11(tempHumidSensorIn);
+  DHTout.read11(tempHumidSensorOut);
   //get temp
-  temp = DHT.getTemperature();
+  tempIn = DHTin.getTemperature();
+  tempOut = DHTout.getTemperature();
   //get humidity
-  humid = DHT.getHumidity();
+  humidIn = DHTin.getHumidity();
+  humidOut = DHTout.getHumidity();
+  
   //get and correct the gas data based on temperature and humidity
-  gas = mq135Sensor.getCorrectedPPM(temp, humid);
+  gasIn = mq135In.getCorrectedPPM(tempIn, humidIn);
+  gasOut = mq135Out.getCorrectedPPM(tempOut, humidOut);
 }
 
 void OpenWindow(void) {
@@ -72,9 +82,14 @@ void loop() {
   // put your main code here, to run repeatedly:
   SensorData();
   
-  Serial.println("temperature : " + String(temp));
-  Serial.println("humidity : " + String(humid));
-  Serial.println("gas : " + String(gas));
+  Serial.println("temperature inside  : " + String(tempIn));
+  Serial.println("humidity inside     : " + String(humidIn));
+  Serial.println("gas inside          : " + String(gasIn));
+  Serial.println("-------------------------------------");
+  Serial.println("temperature outside : " + String(tempOut));
+  Serial.println("humidity outside    : " + String(humidOut));
+  Serial.println("gas outside         : " + String(gasOut));
+  Serial.println("=====================================\n");
   if(rainDrop) {        //raining
     if(!IR)             //Window is open
       CloseWindow();
