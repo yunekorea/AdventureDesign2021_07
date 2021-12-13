@@ -8,7 +8,7 @@
 #define DCOPEN_PWM  9
 #define DCOPEN_DIR  39
 #define DCCLOSE_EN  40
-#define DCCLOSE_PWN 10
+#define DCCLOSE_PWM 10
 #define DCCLOSE_DIR 41
 
 const int switchButton = ;
