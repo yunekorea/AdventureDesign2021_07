@@ -3,6 +3,13 @@
 
 #include <Servo.h>
 
+//Function prototypes
+void SensorInit();
+void MotorInit();
+void SensorData();
+void OpenWindow();
+void CloseWindow();
+
 //DC Motor pin
 #define DCOPEN_EN   38
 #define DCOPEN_PWM  9
@@ -11,7 +18,8 @@
 #define DCCLOSE_PWM 10
 #define DCCLOSE_DIR 41
 
-const int switchButton = ;
+const int switchButton1 = ;
+const int switchButton2 = ;
 
 const int gasSensorIn = A2;
 const int gasSensorOut = A3;
@@ -21,8 +29,7 @@ const int tempHumidSensorOut = 6;
 const int IRSensorOpen = 3;
 const int IRSensorClose = 4;
 
-//const int servoMotor = ;
-
+//variables storing sensor values
 float gasIn = 0;
 float gasOut = 0;
 float tempIn = 0;
@@ -32,6 +39,16 @@ float humidOut = 0;
 int rainDrop = 0;
 int IROpen = 0;
 int IRClose = 0;
+int button1 = 0;
+int button2 = 0;
+
+//an outlier value for the gas sensor in the room
+const int gasInOutlier = 500;
+
+//automatically control the window based on the sensor values
+// 1 : automatic
+// 0 : manual
+int autoControl = 1;
 
 MQ135 mq135In(gasSensorIn);
 MQ135 mq135Out(gasSensorOut);
@@ -50,11 +67,16 @@ void SensorInit(void) {
   //IRSensor init
   pinMode(IRSensorOpen, INPUT);
   pinMode(IRSensorClose, INPUT);
+
+  //Button Init
+  pinMode(switchButton1, INPUT);
+  pinMode(switchButton2, INPUT);
+  
 }
 
 void MotorInit(void) {
   //initializing DC motor
-    pinMode(DCOPEN_EN, OUTPUT);
+  pinMode(DCOPEN_EN, OUTPUT);
   pinMode(DCOPEN_PWM, OUTPUT);
   pinMode(DCOPEN_DIR, OUTPUT);
   pinMode(DCCLOSE_EN, OUTPUT);
@@ -63,8 +85,6 @@ void MotorInit(void) {
   digitalWrite(DCOPEN_EN, HIGH);
   digitalWrite(DCCLOSE_EN, HIGH);
 }
-
-
 
 void SensorData() {
   //getting data from each sensors
@@ -86,9 +106,14 @@ void SensorData() {
   //IRSensor read
   IROpen = digitalRead(IRSensorOpen);
   IRClose = digitalRead(IRSensorClose);
+
+  //Button read
+  button1 = digitalRead(switchButton1);
+  button2 = digitalRead(switchButton2);
+  
 }
 
-void openWindow(){
+void OpenWindow(){
   digitalWrite(DCOPEN_DIR, HIGH); // 정방향 회전
   //int pwm_value = 255 - speed;
   while(digitalRead(IRSensorOpen) ||
@@ -105,6 +130,57 @@ void CloseWindow(void) {
   analogWrite(DCCLOSE_PWM, 255);
 }
 
+//A function for the buttons
+void AutoManualTrans() {
+  if(button1) {           //button1 -> switch to manual
+    autoControl = 0;
+    if(IROpen == 1)       //open or close the window
+      CloseWindow();
+    else if(IRClose == 1)
+      OpenWindow();
+  }
+  if(button2) {           //button2 -> switch to automatic
+    autoControl = 1;
+  }
+}
+
+
+//Automatically controls the window
+//based on the sensor values
+void AutoWindowControl() {
+  //내부 대기질 임계점 이상 : 창문열기 
+  if(gasIn > gasInOutlier) {
+    OpenWindow();
+    return;
+  }
+
+  //빗물 감지 : 창문닫기 
+  if(rainDrop == 1) {
+    CloseWindow();
+    return;
+  }
+
+  //온도확인, 이후에 습도확인 
+  if(18 <= tempIn <= 25) {  //적정 온도
+    if(humidIn - humidOut > 5) {  //실내 습도 > 실외 습도
+      OpenWindow();
+      return;
+    }
+  }else if(18 <= tempOut <= 25) {//실외가 적정 온도일 경우
+    OpenWindow();
+    return;
+  }
+  else if(humidIn - humidOut > 5) {//실내외 모두 적정온도 아님
+    OpenWindow();                  //실내 습도 > 실외 습도
+    return;
+  }
+  
+  //위의 모든 조건에서 정상 결과일 경우 : 창문닫기 
+  CloseWindow();
+}
+
+/* #### main part #### */
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -117,7 +193,12 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   SensorData();
+
+  AutoManualTrans();
   
+  if(autoControl)
+    AutoWindowControl();
+
   Serial.println("temperature inside  : " + String(tempIn));
   Serial.println("humidity inside     : " + String(humidIn));
   Serial.println("gas inside          : " + String(gasIn));
@@ -126,11 +207,5 @@ void loop() {
   Serial.println("humidity outside    : " + String(humidOut));
   Serial.println("gas outside         : " + String(gasOut));
   Serial.println("=====================================\n");
-  if(rainDrop) {        //raining
-    if(!IR)             //Window is open
-      CloseWindow();
-  } else {              //not raining
-    //implement
-  }
   delay(2000);
 }
