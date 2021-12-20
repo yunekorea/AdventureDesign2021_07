@@ -1,3 +1,5 @@
+#include <Pitch.h>
+
 #include <MQ135.h>
 #include "DHTStable.h" //DHTStable by Rob Tillaart
 
@@ -5,9 +7,10 @@
 
 const int gasSensorIn = A2;
 const int gasSensorOut = A3;
-//const int rainDropSensor = ;
+const int rainDropSensor = A0;
 const int tempHumidSensorIn = 5;
 const int tempHumidSensorOut = 6;
+const int speakerPin = A6;
 //const int IRSensor = ;
 //const int servoMotor = ;
 
@@ -17,7 +20,7 @@ float tempIn = 0;
 float tempOut = 0;
 float humidIn = 0;
 float humidOut = 0;
-int rainDrop = 0;
+int rainDrop = A0;
 int IR = 0;
 
 MQ135 mq135In(gasSensorIn);
@@ -29,7 +32,7 @@ Servo windowServo;    //Servo motor that controls the window
 
 void SensorInit(void) {
   //gas Sensor init
-  
+
   //RainDrop Sensor init
 
   //Temp/Humid Sensor init
@@ -60,7 +63,9 @@ void SensorData() {
   gasIn = mq135In.getCorrectedPPM(tempIn, humidIn);
   gasOut = mq135Out.getCorrectedPPM(tempOut, humidOut);
 }
-
+void alert(){
+  tone(speakerPin,)
+}
 void OpenWindow(void) {
   
 }
@@ -69,6 +74,21 @@ void CloseWindow(void) {
   
 }
 
+boolean is_outlier(float gasIn){
+  if(gasIn>20){
+    CloseWindow();
+    return true;
+  }
+  else{return false;}
+}
+void is_openAirQuality(float gasIn, float gasOut){
+  if(gasIn-gasOut<-10){
+    return CloseWindow();
+  }
+  else(gasIn-gasOut>10){
+    return OpenWindow();
+  }
+}
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
