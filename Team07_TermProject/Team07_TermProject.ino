@@ -76,7 +76,7 @@ void CloseWindow(void) {
 
 boolean is_outlier(float gasIn){
   if(gasIn>20){
-    alert;
+    alert();
     CloseWindow();
     return true;
   }
