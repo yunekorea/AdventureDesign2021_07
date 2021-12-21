@@ -4,7 +4,7 @@
 #include "DHTStable.h" //DHTStable by Rob Tillaart
 
 #include <Servo.h>
-
+#define NOTE_G4 392
 const int gasSensorIn = A2;
 const int gasSensorOut = A3;
 const int rainDropSensor = A0;
@@ -64,7 +64,7 @@ void SensorData() {
   gasOut = mq135Out.getCorrectedPPM(tempOut, humidOut);
 }
 void alert(){
-  tone(speakerPin,)
+  tone(speakerPin,NOTE_G4,2000);
 }
 void OpenWindow(void) {
   
@@ -76,6 +76,7 @@ void CloseWindow(void) {
 
 boolean is_outlier(float gasIn){
   if(gasIn>20){
+    alert;
     CloseWindow();
     return true;
   }
