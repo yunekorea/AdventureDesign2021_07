@@ -1,14 +1,11 @@
+#include <SoftwareSerial.h>
 #include <MQ135.h>
 #include <LiquidCrystal.h>
 #include <DHTStable.h>
 
-//DC Motor pin
-#define DCOPEN_EN   38
-#define DCOPEN_PWM  9
-#define DCOPEN_DIR  39
-#define DCCLOSE_EN  40
-#define DCCLOSE_PWM 10
-#define DCCLOSE_DIR 41
+//UART
+SoftwareSerial mySerial(9,10);
+
 
 // Buzzer Note
 #define NOTE_G4 392
@@ -306,40 +303,23 @@ bool is_humid_out() {
    Opens the window
 */
 void open_window() {
-  digitalWrite(DCOPEN_DIR, HIGH);
-  while (is_window_open() == false) {
-    Log("Opening window");
-    analogWrite(DCOPEN_PWM, 0);
+  while(is_window_open() == false){
+    mySerial.write('1');
   }
-  analogWrite(DCOPEN_PWM, 255);
+  mySerial.write('3');
 }
 
 /*
    Closes the window
 */
 void close_window() {
-  digitalWrite(DCCLOSE_DIR, HIGH);
-  while (is_window_open() == true) {
-    Log("Closing window");
-    analogWrite(DCCLOSE_PWM, 0);
+  while(is_window_open()== true){
+    mySerial.write('2');
   }
-  analogWrite(DCCLOSE_PWM, 255);
+  mySerial.write('3');
 }
 
-/*
- * Initialize dual motors
- */
-void MotorInit(void) {
-  //initializing DC motor
-  pinMode(DCOPEN_EN, OUTPUT);
-  pinMode(DCOPEN_PWM, OUTPUT);
-  pinMode(DCOPEN_DIR, OUTPUT);
-  pinMode(DCCLOSE_EN, OUTPUT);
-  pinMode(DCCLOSE_PWM, OUTPUT);
-  pinMode(DCCLOSE_DIR, OUTPUT);
-  digitalWrite(DCOPEN_EN, HIGH);
-  digitalWrite(DCCLOSE_EN, HIGH);
-}
+
 
 /*
  * Initialize LCD with texts
@@ -373,12 +353,13 @@ void SensorInit(void) {
 
 void setup() {
   Serial.begin(9600);
+  // board2
+  mySerial.begin(9600);
   // rgb
   for (int i = 0; i < 3; i++) {
     pinMode(RGB_LED[i], OUTPUT);
   }
   LCDInit();
-  MotorInit();
   ButtonInit();
   SensorInit();
   previousTime = millis();
