@@ -4,7 +4,7 @@
 #include <DHTStable.h>
 
 //UART
-SoftwareSerial mySerial(9,10);
+SoftwareSerial mySerial(9, 10);
 
 
 // Buzzer Note
@@ -39,13 +39,14 @@ const int speakerPin = A6;
 float tempIn = 0, tempOut = 0;
 float humidIn = 0, humidOut = 0;
 float gasIn = 0, gasOut = 0;
-bool isRaining = false;
+bool isRainingValue = false;
 bool isAutoMode = true;
 bool transferControlButtonCurrentState = true, transferControlButtonPreviousState = false; // Prevent multiple clicks
 bool controlWindowButtonCurrentState = true, controlWindowButtonPreviousState = false; // Prevent multiple clicks
 
 unsigned long previousTime, currentTime; // For delaying DHT read
 int count = 0; // Lets ht_read run without waiting for 2000ms
+int manualButtonState = 0;
 
 // Gas sensor objects
 MQ135 mq135In(gasSensorIn);
@@ -71,7 +72,7 @@ void Log(String log_message, String value = "") { // Function to print logs
    Dangerous air quality
 */
 bool is_gas_outlier() {
-  if (gasIn > 20) {
+  if (gasIn > 55) {
     buzzer_alert();
     Log("Gas value is outlier");
     open_window();
@@ -92,7 +93,7 @@ void auto_control_temperature() {
 
   Log("Temperature in: ", String(tempIn));
 
-  if (read_temperature_states(tempIn) == 1 && read_temperature_states(tempOut)==1) {
+  if (read_temperature_states(tempIn) == 1 && read_temperature_states(tempOut) == 1) {
     Log("Temperature is normal");
     if (is_humid_in() == true) {
       open_window();
@@ -101,9 +102,13 @@ void auto_control_temperature() {
   else if (read_temperature_states(tempOut) == 1) {
     Log("Outside temperature is normal");
     open_window();
-  } else if (read_temperature_states(tempOut) != 1) {
+  }
+  else if (read_temperature_states(tempIn) == 1) {
+    close_window();
+  }
+  else if (read_temperature_states(tempOut) != 1) {
     Log ("Outside temperature is not normal");
-    if (is_humid_in == true) {
+    if (is_humid_in() == true) {
       open_window();
     }
   }
@@ -115,7 +120,7 @@ void auto_control_temperature() {
 bool is_humid_in() {
   bool isMoreHumidIn = false;
 
-  if (humidIn-humidOut>15) {
+  if (humidIn - humidOut > 15) {
     isMoreHumidIn = true;
   }
 
@@ -125,8 +130,15 @@ bool is_humid_in() {
    Window auto mode
 */
 void auto_window_control() {
-  if (!(is_raining && is_gas_outlier)) {
+  //  Log("Raining : ", String(is_raining()));
+  //  Log("Gas outlier: ", String(is_gas_outlier()));
+  bool temp = is_gas_outlier();
+  if (!is_raining() && !is_gas_outlier()) {
     auto_control_temperature();
+  }
+  if (is_raining()) {
+
+    close_window();
   }
 }
 
@@ -134,10 +146,16 @@ void auto_window_control() {
    Window manual mode
 */
 void manual_window_control() {
-  if (is_window_open() == true) {
-    close_window();
+  if (manualButtonState == 1) {
+    if (is_window_open() == true) {
+      close_window();
+      manualButtonState = 0;
+    }
+    else {
+      open_window();
+      manualButtonState = 0;
+    }
   }
-  else open_window();
 }
 
 /*
@@ -145,8 +163,8 @@ void manual_window_control() {
 */
 void transfer_control() {
   Log("Current mode is: ", String(isAutoMode));
-
-  if (isAutoMode) {
+  bool temp = is_gas_outlier();
+  if (isAutoMode ) {
     auto_window_control();
   }
   else {
@@ -158,7 +176,9 @@ void transfer_control() {
    Checks if its raining
 */
 bool is_raining() {
-  if (!isRaining) return true;
+  if (!isRainingValue) {
+    return true;
+  }
   else return false;
 }
 
@@ -170,18 +190,17 @@ void buzzer_alert() {
 }
 
 /*
-   Returns true if window open, false if closed.
+   Returns true if window open, false if not open
 */
 bool is_window_open() {
-  if (digitalRead(IRSensorOpen) ||
-      !digitalRead(IRSensorClose)) {
-    return false;
-  }
-  else if (!digitalRead(IRSensorOpen) ||
-           digitalRead(IRSensorClose)) {
-    return true;
-  }
-  //  return false;
+  if (!digitalRead(IRSensorOpen)) return true;
+  else return false;
+}
+
+
+bool is_window_close() {
+  if (!digitalRead(IRSensorClose)) return true;
+  else return false;
 }
 
 /*
@@ -193,8 +212,8 @@ void ht_read() {
   DHTout.read11(tempHumidSensorOut);
 
   // get temperature data
-  tempIn = DHTin.getTemperature()-4;
-  tempOut = DHTout.getTemperature()-5;
+  tempIn = DHTin.getTemperature() - 3;
+  tempOut = DHTout.getTemperature() - 3;
 
   // get humidity data
   humidIn = DHTin.getHumidity();
@@ -205,15 +224,15 @@ void ht_read() {
    Read gas data based on temperature and humidity
 */
 void gas_read() {
-  gasIn = mq135In.getCorrectedPPM(tempIn, humidIn);
-  gasOut = mq135Out.getCorrectedPPM(tempOut, humidOut);
+  gasIn = mq135In.getPPM();
+  gasOut = mq135Out.getPPM();
 }
 
 /*
    Read rain sensor data
 */
 void rain_read() {
-  isRaining = digitalRead(rainDropSensor);
+  isRainingValue = digitalRead(rainDropSensor);
 }
 
 /*
@@ -238,10 +257,10 @@ int read_temperature_states(float _temperature) {
   if (_temperature < 18.00) {
     return 0;
   }
-  else if (_temperature >= 18.00 && _temperature <= 24.00) {
+  else if (_temperature >= 18.00 && _temperature <= 24.99) {
     return 1;
   }
-  else if (_temperature > 24.00) {
+  else if (_temperature > 25.01) {
     return 2;
   }
 }
@@ -251,9 +270,9 @@ int read_temperature_states(float _temperature) {
 */
 void display_temperature_LCD() {
   lcd.setCursor(0, 0);
-  lcd.write("Temperature");
+  lcd.print("Temperature");
   lcd.setCursor(0, 2);
-  lcd.print(tempIn);
+  lcd.print(tempOut);
   lcd.setCursor(5, 2);
   lcd.write(byte(0));
 }
@@ -279,7 +298,7 @@ void set_RGB_color() {
       analogWrite(RGB_LED[2], 0);
       break;
     case 2:
-      colorValue = map(tempOut, 25.1, 38, 120, 255);
+      colorValue = map(tempOut, 24, 38, 120, 255);
       analogWrite(RGB_LED[0], colorValue);
       analogWrite(RGB_LED[1], 0);
       analogWrite(RGB_LED[2], 0);
@@ -293,9 +312,12 @@ void set_RGB_color() {
    Opens the window
 */
 void open_window() {
-  while(is_window_open() == false){
-    mySerial.write('1');
+
+  if (is_window_close() == true) mySerial.write('1');
+  while (is_window_open() == false) {
+    Log("Opening window");
   }
+  Log("Window is now open");
   mySerial.write('3');
 }
 
@@ -303,17 +325,19 @@ void open_window() {
    Closes the window
 */
 void close_window() {
-  while(is_window_open()== true){
-    mySerial.write('2');
+  if (is_window_open() == true) mySerial.write('2');
+  while (is_window_close() == false) {
+    Log("Closing window");
   }
+  Log("Window is now closed");
   mySerial.write('3');
 }
 
 
 
 /*
- * Initialize LCD with texts
- */
+   Initialize LCD with texts
+*/
 void LCDInit(void) {
   byte celsius[8] = {B00000, B11000, B11011, B00100, B01000, B00100, B00011, B00000};
   lcd.createChar(0, celsius);
@@ -322,16 +346,16 @@ void LCDInit(void) {
 }
 
 /*
- * Initialize switch pins
- */
+   Initialize switch pins
+*/
 void ButtonInit(void) {
   pinMode(transferControlButton, INPUT);
   pinMode(controlWindowButton, INPUT);
 }
 
 /*
- * Initialize sensor pins
- */
+   Initialize sensor pins
+*/
 void SensorInit(void) {
   // IR Sensor
   pinMode(IRSensorOpen, INPUT);
@@ -353,19 +377,24 @@ void setup() {
   ButtonInit();
   SensorInit();
   previousTime = millis();
+  delay(2000);
 }
 
 /*
- * Just to make main function look cleaner. This prevents multiple switch clicks.
- */
+   Just to make main function look cleaner. This prevents multiple switch clicks.
+*/
 void prevent_multiple_click() {
   transferControlButtonCurrentState = digitalRead(transferControlButton);
   controlWindowButtonCurrentState = digitalRead(controlWindowButton);
+
+  Log("Manual button state ", String(manualButtonState));
+
 
   if (controlWindowButtonCurrentState) {
     if (controlWindowButtonPreviousState == false) {
       Log("Control mode set to manual");
       isAutoMode = false;
+      manualButtonState = 1;
       manual_window_control();
       controlWindowButtonPreviousState = true;
     }
@@ -373,6 +402,7 @@ void prevent_multiple_click() {
 
   if (transferControlButtonCurrentState) { // 버튼을 누른 경우
     if (transferControlButtonPreviousState == false) { // 이전 상태와 비교
+      Log("Changing modes");
       isAutoMode = !isAutoMode;
       transferControlButtonPreviousState = true;
     }
@@ -381,12 +411,16 @@ void prevent_multiple_click() {
 }
 
 void loop() {
-  
+
   prevent_multiple_click();
   read_sensor(); // Read humidity and temperature
   display_temperature_LCD(); // Display current temperature in LCD
   set_RGB_color(); // Set RGB LED
   transfer_control();
 
-  delay(50);
+  Log("Gas In: ", String(gasIn));
+  Log("Temp OUt: ", String(tempOut));
+
+  delay(1000);
+
 }
